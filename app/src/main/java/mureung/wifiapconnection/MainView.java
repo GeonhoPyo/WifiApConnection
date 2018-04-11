@@ -22,6 +22,13 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.Socket;
+import java.net.SocketException;
+import java.util.Enumeration;
+
 
 /**
  * Created by user on 2018-01-29.
@@ -165,13 +172,59 @@ public class MainView extends Fragment implements View.OnClickListener {
                 //현재 연결된 wifi ip 정보 가져오기
                 WifiManager wm = (WifiManager)getContext().getApplicationContext().getSystemService(Context.WIFI_SERVICE);
                 DhcpInfo dhcpInfo = wm.getDhcpInfo();
-                int serverIp = dhcpInfo.gateway;
-                String ipAddress = String.format("%d.%d.%d.%d",(serverIp&0xff),(serverIp>>8&0xff),(serverIp>>16&0xff),(serverIp>>24&0xff));
-                Log.e("MainView ","wifiState ipAddress : " + ipAddress);
+                int ipAddress = dhcpInfo.ipAddress;
+                int netmask = dhcpInfo.netmask;
+                int gateway = dhcpInfo.gateway;
+                int serverAddress = dhcpInfo.serverAddress;
+                int dns1 = dhcpInfo.dns1;
+                int dns2 = dhcpInfo.dns2;
+
+
+
+                String strIpAddress = String.format("%d.%d.%d.%d",(ipAddress&0xff),(ipAddress>>8&0xff),(ipAddress>>16&0xff),(ipAddress>>24&0xff));
+                String strNetMask = String.format("%d.%d.%d.%d",(netmask&0xff),(netmask>>8&0xff),(netmask>>16&0xff),(netmask>>24&0xff));
+                String strGateway = String.format("%d.%d.%d.%d",(gateway&0xff),(gateway>>8&0xff),(gateway>>16&0xff),(gateway>>24&0xff));
+                String strServerAddress = String.format("%d.%d.%d.%d",(serverAddress&0xff),(serverAddress>>8&0xff),(serverAddress>>16&0xff),(serverAddress>>24&0xff));
+                String strDns1 = String.format("%d.%d.%d.%d",(dns1&0xff),(dns1>>8&0xff),(dns1>>16&0xff),(dns1>>24&0xff));
+                String strDns2 = String.format("%d.%d.%d.%d",(dns2&0xff),(dns2>>8&0xff),(dns2>>16&0xff),(dns2>>24&0xff));
+                Log.e("MainView ","wifiState strIpAddress : " + strIpAddress);
+                Log.e("MainView ","wifiState strNetMask : " + strNetMask);
+                Log.e("MainView ","wifiState strGateway : " + strGateway);
+                Log.e("MainView ","wifiState strServerAddress : " + strServerAddress);
+                Log.e("MainView ","wifiState strDns1 : " + strDns1);
+                Log.e("MainView ","wifiState strDns2 : " + strDns2);
+                /*try {
+                    Socket socket = new Socket(ipAddress,80);
+                    String localAddress = socket.getLocalAddress().getHostAddress();
+                    Log.e("test","localAddress : " + localAddress);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }*/
+                //Log.e("MainView","getMyIpAddress : " + getMyIpAddress());
+
                 break;
 
         }
 
+    }
+
+    private String getMyIpAddress(){
+        try {
+            Enumeration<NetworkInterface> en =  NetworkInterface.getNetworkInterfaces();
+            while(en.hasMoreElements()) {
+                NetworkInterface interf = en.nextElement();
+                Enumeration<InetAddress> ips = interf.getInetAddresses();
+                while (ips.hasMoreElements()) {
+                    InetAddress inetAddress = ips.nextElement();
+                    if (!inetAddress.isLoopbackAddress()) {
+                        return inetAddress.getHostAddress().toString();
+                    }
+                }
+            }
+        } catch (SocketException ex) {
+            Log.e("Error", ex.toString());
+        }
+        return null;
     }
 
 
