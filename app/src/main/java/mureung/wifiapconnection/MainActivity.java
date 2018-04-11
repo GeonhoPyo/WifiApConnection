@@ -6,11 +6,13 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Build;
@@ -39,6 +41,8 @@ public class MainActivity extends AppCompatActivity{
 
     public static WifiP2pManager wifiP2pManager ;
     public static WifiP2pManager.Channel channel ;
+
+
 
 
 
@@ -71,6 +75,7 @@ public class MainActivity extends AppCompatActivity{
 
         }
 
+        setBroadcastReceiver();
 
 
         checkPermission(this);
@@ -100,6 +105,9 @@ public class MainActivity extends AppCompatActivity{
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if(broadcastReceiver!=null){
+            unregisterReceiver(broadcastReceiver);
+        }
 
     }
 
@@ -136,21 +144,24 @@ public class MainActivity extends AppCompatActivity{
             if (!isPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ||
                     !isPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) ||
                     !isPermission(context, Manifest.permission.CALL_PHONE) ||
-                    !isPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) ) {
+                    !isPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) ||
+                    !isPermission(context, Manifest.permission.WRITE_SETTINGS)) {
                 if (ActivityCompat.shouldShowRequestPermissionRationale((Activity) context, Manifest.permission.ACCESS_FINE_LOCATION) ||
                         ActivityCompat.shouldShowRequestPermissionRationale((Activity) context, Manifest.permission.CAMERA) ||
                         ActivityCompat.shouldShowRequestPermissionRationale((Activity) context, Manifest.permission.READ_EXTERNAL_STORAGE) ||
+                        ActivityCompat.shouldShowRequestPermissionRationale((Activity) context, Manifest.permission.WRITE_SETTINGS) ||
                         ActivityCompat.shouldShowRequestPermissionRationale((Activity) context, Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
                 }
                 ActivityCompat.requestPermissions((Activity)context,new String[]{
                                 android.Manifest.permission.ACCESS_FINE_LOCATION,
                                 android.Manifest.permission.READ_EXTERNAL_STORAGE,
                                 android.Manifest.permission.CAMERA,
-                                android.Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                                android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                                Manifest.permission.WRITE_SETTINGS},
                         1000);
             }
 
-            if(Settings.canDrawOverlays(context)){
+            /*if(Settings.canDrawOverlays(context)){
                 if(context != null){
                     Log.e("test","다른 앱 위에 그리기 권한  "+Settings.canDrawOverlays(context));
                 }
@@ -164,7 +175,22 @@ public class MainActivity extends AppCompatActivity{
                     context.startActivity(intent);
                 }
 
+            }*/
+            if(Settings.System.canWrite(context)){
+
+            }else {
+                if(context!= null){
+                    Uri uri = Uri.fromParts("package",context.getPackageName(),null);
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS,uri);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    context.startActivity(intent);
+                }
+
+
+
             }
+
+
         }
 
     }
@@ -198,14 +224,16 @@ public class MainActivity extends AppCompatActivity{
         wifiConfig.SSID = "".concat("MureungTest").concat("");
         wifiConfig.status = WifiConfiguration.Status.DISABLED;
         wifiConfig.priority = 40;
-        wifiConfig.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.OPEN);
+        wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
         wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
-        wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+        wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.WPA);
+        wifiConfig.allowedAuthAlgorithms.clear();
         wifiConfig.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
-        wifiConfig.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.TKIP);
+        wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
+        wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104);
         wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
         wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP);
-        wifiConfig.preSharedKey = "\"".concat("123456789").concat("\"");
+
 
 
 
@@ -221,5 +249,24 @@ public class MainActivity extends AppCompatActivity{
         }
         return false;
     }
+
+
+    private void setBroadcastReceiver(){
+        broadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+
+                String action = intent.getAction();
+                Log.e("test","test action : " + action);
+
+            }
+        };
+
+
+
+        registerReceiver(broadcastReceiver,new IntentFilter("android.net.wifi.SCAN_RESULTS"));
+    }
+
+
 
 }

@@ -64,7 +64,7 @@
         <LinearLayout
             android:layout_width="80dp"
             android:layout_height="80dp"
-            android:id="@+id/pidTestBtn"
+            android:id="@+id/wifiState"
             android:layout_gravity="center|top"
             android:gravity="center"
             android:orientation="vertical"
@@ -79,7 +79,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="전체 모니터링"
+                android:text="인터넷 정보"
                 android:textColor="#ffffff"/>
 
 

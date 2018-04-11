@@ -3,6 +3,7 @@ package mureung.wifiapconnection;
 import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
+import android.net.DhcpInfo;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
@@ -28,7 +29,7 @@ import android.widget.TextView;
 
 public class MainView extends Fragment implements View.OnClickListener {
 
-    LinearLayout pidTestBtn,pidScheduleBtn;
+    LinearLayout wifiState;
     LinearLayout wifiConnect,wifiTether;
     LinearLayout wifiTestButton;
     ImageView bluetoothIcon;
@@ -53,6 +54,8 @@ public class MainView extends Fragment implements View.OnClickListener {
 
         wifiConnectText = (TextView)view.findViewById(R.id.wifiConnectText);
 
+        wifiState = (LinearLayout)view.findViewById(R.id.wifiState);
+        wifiState.setOnClickListener(this);
 
 
 
@@ -129,14 +132,15 @@ public class MainView extends Fragment implements View.OnClickListener {
                 wifiConfig.SSID = "".concat("MureungTest").concat("");
                 wifiConfig.status = WifiConfiguration.Status.DISABLED;
                 wifiConfig.priority = 40;
-                wifiConfig.allowedAuthAlgorithms.set(WifiConfiguration.AuthAlgorithm.OPEN);
+                wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
                 wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
-                wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.WPA_PSK);
+                wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.WPA);
+                wifiConfig.allowedAuthAlgorithms.clear();
                 wifiConfig.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
-                wifiConfig.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.TKIP);
+                wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
+                wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104);
                 wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
                 wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP);
-                wifiConfig.preSharedKey = "\"".concat("123456789").concat("\"");
 
                 int netId = wifiManager.addNetwork(wifiConfig);
                 wifiManager.disconnect();
@@ -155,6 +159,15 @@ public class MainView extends Fragment implements View.OnClickListener {
                     Log.e("MainView","wifiTether 테더링 실패");
                 }
 
+                break;
+
+            case R.id.wifiState:
+                //현재 연결된 wifi ip 정보 가져오기
+                WifiManager wm = (WifiManager)getContext().getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                DhcpInfo dhcpInfo = wm.getDhcpInfo();
+                int serverIp = dhcpInfo.gateway;
+                String ipAddress = String.format("%d.%d.%d.%d",(serverIp&0xff),(serverIp>>8&0xff),(serverIp>>16&0xff),(serverIp>>24&0xff));
+                Log.e("MainView ","wifiState ipAddress : " + ipAddress);
                 break;
 
         }
