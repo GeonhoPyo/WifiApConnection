@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
+import android.net.DhcpInfo;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.net.wifi.WifiConfiguration;
@@ -31,16 +32,24 @@ import android.widget.Toast;
 
 import java.lang.reflect.Method;
 
+import mureung.wifiapconnection.WifiConnect.SocketClient;
+import mureung.wifiapconnection.WifiConnect.SocketServer;
+
 
 public class MainActivity extends AppCompatActivity{
 
 
-    public static Handler MainActivityHandler;
+    public static Handler mainAcitivityHandler;
     public static Context mainContext;
     BroadcastReceiver broadcastReceiver;
 
     public static WifiP2pManager wifiP2pManager ;
     public static WifiP2pManager.Channel channel ;
+
+    public static String connectIpAddress = null;
+    public static String connectGatewayAddress = null;
+    private boolean Connect_FLAG = false;
+
 
 
 
@@ -75,29 +84,25 @@ public class MainActivity extends AppCompatActivity{
 
         }
 
-        setBroadcastReceiver();
+
 
 
         checkPermission(this);
 
-        /*BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        bluetoothAdapter.startDiscovery();
-
-        broadcastReceiver = new BroadcastReceiver() {
+        mainAcitivityHandler = new Handler(new Handler.Callback() {
             @Override
-            public void onReceive(Context context, Intent intent) {
-                String action = intent.getAction();
-                if(BluetoothDevice.ACTION_FOUND.equals(action)){
-                    final BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-
-                    Log.e("MainActivity","test onReceive getName :  "+device.getName()+"   , getAddress : "+device.getAddress());
-
-
+            public boolean handleMessage(Message msg) {
+                switch (msg.what){
+                    case 1:
+                        Toast.makeText(getBaseContext(),String.valueOf(msg.obj),Toast.LENGTH_SHORT).show();
+                        break;
                 }
+
+                return true;
             }
-        };
-        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-        this.registerReceiver(broadcastReceiver, filter);*/
+        });
+
+        getConnectedInfo(getBaseContext());
 
 
     }
@@ -105,8 +110,10 @@ public class MainActivity extends AppCompatActivity{
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if(broadcastReceiver!=null){
+        try{
             unregisterReceiver(broadcastReceiver);
+        }catch (Exception e){
+            e.printStackTrace();
         }
 
     }
@@ -240,6 +247,9 @@ public class MainActivity extends AppCompatActivity{
         try{
             if(isApOn(context)){
                 wifiManager.setWifiEnabled(false);
+
+            }else {
+                new SocketServer().start();
             }
             Method method = wifiManager.getClass().getDeclaredMethod("setWifiApEnabled",WifiConfiguration.class,boolean.class);
             method.invoke(wifiManager,wifiConfig,!isApOn(context));
@@ -250,22 +260,70 @@ public class MainActivity extends AppCompatActivity{
         return false;
     }
 
+    private void getConnectedInfo(Context context){
 
-    private void setBroadcastReceiver(){
+        ConnectivityManager connectivityManager = (ConnectivityManager)context.getSystemService(CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
+        if(networkInfo!= null && networkInfo.isConnected()){
+            if(networkInfo.getType() == ConnectivityManager.TYPE_WIFI){
+                WifiManager wifiManager = (WifiManager)context.getSystemService(Context.WIFI_SERVICE);
+                DhcpInfo dhcpInfo = wifiManager.getDhcpInfo();
+                int ipAddress = dhcpInfo.ipAddress;
+                int gateway = dhcpInfo.gateway;
+                String strIpAddress = String.format("%d.%d.%d.%d",(ipAddress&0xff),(ipAddress>>8&0xff),(ipAddress>>16&0xff),(ipAddress>>24&0xff));
+                String strGateway = String.format("%d.%d.%d.%d",(gateway&0xff),(gateway>>8&0xff),(gateway>>16&0xff),(gateway>>24&0xff));
+                if(!strIpAddress.equals("0.0.0.0")&&!strGateway.equals("0.0.0.0")){
+                    connectIpAddress = strIpAddress;
+                    connectGatewayAddress = strGateway;
+                    Log.e("getConnectedInfo","strIpAddress : " + strIpAddress + " , strGateway : " + strGateway);
+
+                }
+            }
+        }
+
+
+    }
+
+
+    public void setBroadcastReceiver(Context context){
         broadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
 
                 String action = intent.getAction();
-                Log.e("test","test action : " + action);
+                WifiManager wifiManager = (WifiManager)context.getSystemService(Context.WIFI_SERVICE);
+                DhcpInfo dhcpInfo = wifiManager.getDhcpInfo();
+                int ipAddress = dhcpInfo.ipAddress;
+                int gateway = dhcpInfo.gateway;
+                String strIpAddress = String.format("%d.%d.%d.%d",(ipAddress&0xff),(ipAddress>>8&0xff),(ipAddress>>16&0xff),(ipAddress>>24&0xff));
+                final String strGateway = String.format("%d.%d.%d.%d",(gateway&0xff),(gateway>>8&0xff),(gateway>>16&0xff),(gateway>>24&0xff));
+                if(!strIpAddress.equals("0.0.0.0")&&!strGateway.equals("0.0.0.0")){
+                    Log.e("onReceiver","strIpAddress : " + strIpAddress + " , strGateway : " + strGateway);
+                    connectIpAddress = strIpAddress;
+                    connectGatewayAddress = strGateway;
+                    if(!Connect_FLAG){
+                        Connect_FLAG = true;
+                        new Handler().postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                new SocketClient(strGateway,"9990");
+                            }
+                        },1000);
+
+                    }
+
+                }
+
 
             }
         };
 
 
 
-        registerReceiver(broadcastReceiver,new IntentFilter("android.net.wifi.SCAN_RESULTS"));
+        context.registerReceiver(broadcastReceiver,new IntentFilter("android.net.wifi.STATE_CHANGE"));
     }
+
+
 
 
 

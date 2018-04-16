@@ -1,7 +1,6 @@
 package mureung.wifiapconnection;
 
 import android.content.Context;
-import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.DhcpInfo;
 import android.net.NetworkInfo;
@@ -18,16 +17,19 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.TextView;
 
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
-import java.net.Socket;
 import java.net.SocketException;
 import java.util.Enumeration;
+
+import mureung.wifiapconnection.WifiConnect.SocketClient;
+import mureung.wifiapconnection.WifiConnect.SocketServer;
 
 
 /**
@@ -38,13 +40,15 @@ public class MainView extends Fragment implements View.OnClickListener {
 
     LinearLayout wifiState;
     LinearLayout wifiConnect,wifiTether;
-    LinearLayout wifiTestButton;
+    LinearLayout wifiTestButton,pushData;
     ImageView bluetoothIcon;
 
     TextView wifiTetherText , wifiConnectText;
+    EditText mainEditText;
 
     Handler mainViewHandler;
 
+    ListView mainViewList;
 
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
@@ -63,6 +67,14 @@ public class MainView extends Fragment implements View.OnClickListener {
 
         wifiState = (LinearLayout)view.findViewById(R.id.wifiState);
         wifiState.setOnClickListener(this);
+        pushData = (LinearLayout)view.findViewById(R.id.pushData);
+        pushData.setOnClickListener(this);
+
+        mainEditText = (EditText)view.findViewById(R.id.mainEditText);
+
+        mainViewList = (ListView)view.findViewById(R.id.mainViewList);
+
+
 
 
 
@@ -121,6 +133,7 @@ public class MainView extends Fragment implements View.OnClickListener {
 
         switch (v.getId()){
             case R.id.wifiConnect:
+                new MainActivity().setBroadcastReceiver(getContext());
                 Log.e("MainView","wifiConnect");
                 ConnectivityManager manager ;
                 WifiManager wifiManager = (WifiManager)getContext().getApplicationContext().getSystemService(Context.WIFI_SERVICE);
@@ -166,6 +179,10 @@ public class MainView extends Fragment implements View.OnClickListener {
                     Log.e("MainView","wifiTether 테더링 실패");
                 }
 
+
+
+
+
                 break;
 
             case R.id.wifiState:
@@ -201,6 +218,21 @@ public class MainView extends Fragment implements View.OnClickListener {
                     e.printStackTrace();
                 }*/
                 //Log.e("MainView","getMyIpAddress : " + getMyIpAddress());
+
+                break;
+
+            case R.id.pushData :
+                //Client.connectClient();
+
+                //Client.connectClient("연결 테스트");
+
+                if(SocketClient.isClient_FLAG()){
+                    new SocketClient().sendMsg(String.valueOf(mainEditText.getText()));
+                }
+                if(SocketServer.isServer_FLAG()){
+                    SocketServer.sendMsg(String.valueOf(mainEditText.getText()));
+                }
+
 
                 break;
 

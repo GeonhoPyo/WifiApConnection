@@ -88,7 +88,7 @@
         <LinearLayout
             android:layout_width="80dp"
             android:layout_height="80dp"
-            android:id="@+id/pidScheduleBtn"
+            android:id="@+id/pushData"
             android:layout_gravity="center|top"
             android:gravity="center"
             android:layout_marginRight="20dp"
@@ -103,7 +103,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="스케줄링"
+                android:text="데이터 보내기"
                 android:textColor="#ffffff"/>
 
 
@@ -114,6 +114,21 @@
 
     </LinearLayout>
 
+
+    <EditText
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="20dp"
+        android:id="@+id/mainEditText"/>
+
+    <ListView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/mainViewList">
+
+    </ListView>
 
 
 
