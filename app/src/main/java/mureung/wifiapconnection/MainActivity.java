@@ -12,6 +12,7 @@ import android.net.ConnectivityManager;
 import android.net.DhcpInfo;
 import android.net.NetworkInfo;
 import android.net.Uri;
+import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
@@ -27,10 +28,14 @@ import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.lang.reflect.Method;
+import java.util.List;
+
+import javax.security.auth.login.LoginException;
 
 import mureung.wifiapconnection.WifiConnect.SocketClient;
 import mureung.wifiapconnection.WifiConnect.SocketServer;
@@ -42,6 +47,7 @@ public class MainActivity extends AppCompatActivity{
     public static Handler mainAcitivityHandler;
     public static Context mainContext;
     BroadcastReceiver broadcastReceiver;
+    BroadcastReceiver scanBroadCastReceiver;
 
     public static WifiP2pManager wifiP2pManager ;
     public static WifiP2pManager.Channel channel ;
@@ -49,6 +55,7 @@ public class MainActivity extends AppCompatActivity{
     public static String connectIpAddress = null;
     public static String connectGatewayAddress = null;
     private boolean Connect_FLAG = false;
+    private static WifiManager broadCastWifiManager;
 
 
 
@@ -71,7 +78,7 @@ public class MainActivity extends AppCompatActivity{
         channel = wifiP2pManager.initialize(this,getMainLooper(),null);
 
 
-        ConnectivityManager connectivityManager = (ConnectivityManager)getBaseContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+        /*ConnectivityManager connectivityManager = (ConnectivityManager)getBaseContext().getSystemService(Context.CONNECTIVITY_SERVICE);
         if(connectivityManager !=null){
             NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
             if(networkInfo!=null){
@@ -82,36 +89,46 @@ public class MainActivity extends AppCompatActivity{
                 Log.e("test","networkInfo : null");
             }
 
-        }
+        }*/
 
 
 
 
         checkPermission(this);
-
-        mainAcitivityHandler = new Handler(new Handler.Callback() {
-            @Override
-            public boolean handleMessage(Message msg) {
-                switch (msg.what){
-                    case 1:
-                        Toast.makeText(getBaseContext(),String.valueOf(msg.obj),Toast.LENGTH_SHORT).show();
-                        break;
-                }
-
-                return true;
-            }
-        });
-
+        setHandler();
         getConnectedInfo(getBaseContext());
+        preStateCheckConnect();
+
 
 
     }
+
+    /**
+     * 이전 상태를 가져와서 미리 연결 되거나,
+     * 테더링이 켜져잇다면 Accept
+     * wifi가 켜져잇다면 연결 요청
+     * */
+    private void preStateCheckConnect(){
+        setScanBroadcastReceiver(getBaseContext());
+        if(new WifiApManager().isApOn(getBaseContext())){
+            new SocketServer().start();
+        }
+    }
+
+
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         try{
             unregisterReceiver(broadcastReceiver);
+            broadcastReceiver = null;
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        try{
+            unregisterReceiver(scanBroadCastReceiver);
+            scanBroadCastReceiver = null;
         }catch (Exception e){
             e.printStackTrace();
         }
@@ -167,22 +184,6 @@ public class MainActivity extends AppCompatActivity{
                                 Manifest.permission.WRITE_SETTINGS},
                         1000);
             }
-
-            /*if(Settings.canDrawOverlays(context)){
-                if(context != null){
-                    Log.e("test","다른 앱 위에 그리기 권한  "+Settings.canDrawOverlays(context));
-                }
-
-            }else{
-                if(context != null){
-                    Log.e("test","다른 앱 위에 그리기 권한  "+Settings.canDrawOverlays(context));
-                    Uri uri = Uri.fromParts("package",context.getPackageName(),null);
-                    Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,uri);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    context.startActivity(intent);
-                }
-
-            }*/
             if(Settings.System.canWrite(context)){
 
             }else {
@@ -202,63 +203,7 @@ public class MainActivity extends AppCompatActivity{
 
     }
 
-    /**
-     * 2018.04.04 by.GeonHo
-     * 핫스팟 자동으로 켜기 부분
-     * configApState() 키면 자동으로 켜진다.
-     * */
 
-    private boolean isApOn(Context context){
-        WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
-        try{
-
-
-            Method method = wifiManager.getClass().getDeclaredMethod("isWifiApEnabled");
-            method.setAccessible(true);
-            Log.e("test","(Boolean) method.invoke(wifiManager) : " + (Boolean) method.invoke(wifiManager));
-            return (Boolean) method.invoke(wifiManager);
-
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-        return false;
-    }
-
-    public boolean configApState(Context context){
-        WifiManager wifiManager = (WifiManager)context.getSystemService(Context.WIFI_SERVICE);
-
-        WifiConfiguration wifiConfig = new WifiConfiguration();
-        wifiConfig.SSID = "".concat("MureungTest").concat("");
-        wifiConfig.status = WifiConfiguration.Status.DISABLED;
-        wifiConfig.priority = 40;
-        wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-        wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
-        wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.WPA);
-        wifiConfig.allowedAuthAlgorithms.clear();
-        wifiConfig.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
-        wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
-        wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104);
-        wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
-        wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP);
-
-
-
-
-        try{
-            if(isApOn(context)){
-                wifiManager.setWifiEnabled(false);
-
-            }else {
-                new SocketServer().start();
-            }
-            Method method = wifiManager.getClass().getDeclaredMethod("setWifiApEnabled",WifiConfiguration.class,boolean.class);
-            method.invoke(wifiManager,wifiConfig,!isApOn(context));
-            return true;
-        }catch (Exception e){
-            e.printStackTrace();
-        }
-        return false;
-    }
 
     private void getConnectedInfo(Context context){
 
@@ -285,44 +230,111 @@ public class MainActivity extends AppCompatActivity{
     }
 
 
-    public void setBroadcastReceiver(Context context){
+    public void setWifiBroadcastReceiver(Context context){
         broadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-
                 String action = intent.getAction();
-                WifiManager wifiManager = (WifiManager)context.getSystemService(Context.WIFI_SERVICE);
-                DhcpInfo dhcpInfo = wifiManager.getDhcpInfo();
-                int ipAddress = dhcpInfo.ipAddress;
-                int gateway = dhcpInfo.gateway;
-                String strIpAddress = String.format("%d.%d.%d.%d",(ipAddress&0xff),(ipAddress>>8&0xff),(ipAddress>>16&0xff),(ipAddress>>24&0xff));
-                final String strGateway = String.format("%d.%d.%d.%d",(gateway&0xff),(gateway>>8&0xff),(gateway>>16&0xff),(gateway>>24&0xff));
-                if(!strIpAddress.equals("0.0.0.0")&&!strGateway.equals("0.0.0.0")){
-                    Log.e("onReceiver","strIpAddress : " + strIpAddress + " , strGateway : " + strGateway);
-                    connectIpAddress = strIpAddress;
-                    connectGatewayAddress = strGateway;
-                    if(!Connect_FLAG){
-                        Connect_FLAG = true;
-                        new Handler().postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                new SocketClient(strGateway,"9990");
-                            }
-                        },1000);
-
-                    }
-
+                if(action.equals(WifiManager.NETWORK_STATE_CHANGED_ACTION)){
+                    preConnectWifi(context);
                 }
-
-
             }
         };
 
 
-
-        context.registerReceiver(broadcastReceiver,new IntentFilter("android.net.wifi.STATE_CHANGE"));
+        IntentFilter intentFilter = new IntentFilter(WifiManager.NETWORK_STATE_CHANGED_ACTION);
+        context.registerReceiver(broadcastReceiver,intentFilter);
     }
 
+    private void preConnectWifi(Context context){
+        WifiManager wifiManager = (WifiManager)context.getSystemService(Context.WIFI_SERVICE);
+        DhcpInfo dhcpInfo = wifiManager.getDhcpInfo();
+        int ipAddress = dhcpInfo.ipAddress;
+        int gateway = dhcpInfo.gateway;
+        String strIpAddress = String.format("%d.%d.%d.%d",(ipAddress&0xff),(ipAddress>>8&0xff),(ipAddress>>16&0xff),(ipAddress>>24&0xff));
+        final String strGateway = String.format("%d.%d.%d.%d",(gateway&0xff),(gateway>>8&0xff),(gateway>>16&0xff),(gateway>>24&0xff));
+        if(!strIpAddress.equals("0.0.0.0")&&!strGateway.equals("0.0.0.0")){
+            Log.e("onReceiver","strIpAddress : " + strIpAddress + " , strGateway : " + strGateway);
+            connectIpAddress = strIpAddress;
+            connectGatewayAddress = strGateway;
+            if(!Connect_FLAG){
+                Connect_FLAG = true;
+                new Handler().postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        new SocketClient(strGateway,"9990");
+                    }
+                },1000);
+
+            }
+
+        }
+    }
+
+    public void setScanBroadcastReceiver(Context context){
+
+        if(scanBroadCastReceiver != null){
+            try{
+                unregisterReceiver(scanBroadCastReceiver);
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+            scanBroadCastReceiver = null;
+        }
+        broadCastWifiManager = (WifiManager)context.getSystemService(Context.WIFI_SERVICE);
+        Log.e("MainActivity","isWifiEnabled : " + broadCastWifiManager.isWifiEnabled());
+        if (broadCastWifiManager != null && broadCastWifiManager.isWifiEnabled()) {
+            preConnectWifi(context);
+
+        }else {
+            if (broadCastWifiManager != null) {
+                broadCastWifiManager.startScan();
+            }
+
+            scanBroadCastReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    String action = intent.getAction();
+                    if(action.equals(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)){
+                        List<ScanResult> scanResults = broadCastWifiManager.getScanResults();
+                        for(int i = 0 ; i < scanResults.size() ; i++){
+                            if(scanResults.get(i).SSID.equals("MureungTest")){
+                                new MainView().connectWifi(context);
+                                unregisterReceiver(scanBroadCastReceiver);
+                                scanBroadCastReceiver = null;
+                            }
+                        }
+
+
+                    }
+
+
+                }
+            };
+
+
+            IntentFilter intentFilter = new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION);
+            context.registerReceiver(scanBroadCastReceiver,intentFilter);
+        }
+
+    }
+
+    private void setHandler(){
+        mainAcitivityHandler = new Handler(new Handler.Callback() {
+            @Override
+            public boolean handleMessage(Message msg) {
+                switch (msg.what){
+                    case 1:
+
+
+                        Toast.makeText(getBaseContext(),String.valueOf(msg.obj),Toast.LENGTH_SHORT).show();
+                        break;
+                }
+
+                return true;
+            }
+        });
+    }
 
 
 

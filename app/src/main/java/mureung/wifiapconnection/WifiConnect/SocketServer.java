@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 
 import mureung.wifiapconnection.MainActivity;
+import mureung.wifiapconnection.MainView;
 
 public class SocketServer extends Thread {
 
@@ -21,6 +22,8 @@ public class SocketServer extends Thread {
 
     private static HashMap<String,DataOutputStream> clients;
     private ServerSocket serverSocket = null;
+    public static final String allConnect = "All";
+    public static String ipAddressConnect = null;
 
 
     /*public static void main(String[] args){
@@ -34,7 +37,6 @@ public class SocketServer extends Thread {
 
 
     public SocketServer(){
-
         if(serverSocket != null){
             try {
                 serverSocket.close();
@@ -42,14 +44,15 @@ public class SocketServer extends Thread {
                 e.printStackTrace();
             }
         }
-        clients = new HashMap<String,DataOutputStream>();
-        Collections.synchronizedMap(clients);
+
     }
 
     @Override
     public void run() {
         int port = 9990;
         Socket socket = null;
+        clients = new HashMap<String,DataOutputStream>();
+        Collections.synchronizedMap(clients);
         try {
             serverSocket = new ServerSocket(port);
             Log.e("SocketServer","접속 대기 중");
@@ -101,9 +104,11 @@ public class SocketServer extends Thread {
                 Log.e("SocketServer","IP Address : " + strIpAddress);
                 clients.put(strIpAddress,output);
                 sendMsg(strIpAddress+"   접속");
+                new MainView().addListItem(strIpAddress);
 
                 while (input != null){
                     try {
+
                         String temp = input.readUTF();
                         sendMsg("OK");
                         //sendMsg(temp);
@@ -112,8 +117,11 @@ public class SocketServer extends Thread {
                             MainActivity.mainAcitivityHandler.obtainMessage(1,temp).sendToTarget();
                         }
                     }catch (Exception e){
-                        sendMsg("No Message");
+                        socket.close();
+                        clients.remove(strIpAddress);
+                        new MainView().removeListItem(strIpAddress);
                         e.printStackTrace();
+                        break;
                     }
                 }
             }catch (Exception e){
@@ -135,7 +143,30 @@ public class SocketServer extends Thread {
         }
     }
 
+    public void setIpAddressConnect(String ipAddress){
+        Log.e("SocketServer","setIpAddressConnect ipAddress : " + ipAddress);
+        if(ipAddress!=null){
+            ipAddressConnect = ipAddress;
+        }else {
+            ipAddressConnect = allConnect;
+        }
+    }
+
     public static void sendMsg(String msg){
+        Log.e("test","ipAddressConnect : " + ipAddressConnect);
+        if(ipAddressConnect != null){
+            if(ipAddressConnect.equals(allConnect)){
+                allSendMsg(msg);
+            }else {
+                targetSendMsg(ipAddressConnect,msg);
+            }
+        }else {
+            allSendMsg(msg);
+        }
+
+    }
+    private static void allSendMsg(String msg){
+        Log.e("SocketServer","allSendMsg msg : " + msg);
         Iterator<String> it = clients.keySet().iterator();
 
         while(it.hasNext()){
@@ -143,10 +174,25 @@ public class SocketServer extends Thread {
                 OutputStream dos = clients.get(it.next());
                 DataOutputStream output = new DataOutputStream(dos);
                 output.writeUTF(msg);
+
             }catch (Exception e){
                 e.printStackTrace();
             }
         }
+    }
+    private static void targetSendMsg(String ipAddress , String msg){
+        Log.e("SocketServer","targetSendMsg ipAddress : " + ipAddress + " , msg : " + msg + " , clients.size() : " + clients.size());
+        if(!clients.isEmpty()){
+            try {
+                OutputStream dos = clients.get(ipAddress);
+                Log.e("SocketServer","targetSendMsg clients.get(ipAddress) : " + clients.get(ipAddress));
+                DataOutputStream output = new DataOutputStream(dos);
+                output.writeUTF(msg);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
     }
 
 }

@@ -1,9 +1,14 @@
 package mureung.wifiapconnection.WifiConnect;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.net.ConnectivityManager;
 import android.net.DhcpInfo;
+import android.net.NetworkInfo;
+import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
+import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 
@@ -13,6 +18,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import mureung.wifiapconnection.MainActivity;
 
@@ -30,6 +37,7 @@ public class SocketClient{
     BufferedReader bufferedReader = null;
     private static  DataOutputStream output = null;
     private int count = 0;
+    private static Context context;
 
 
     public static boolean isClient_FLAG() {
@@ -62,6 +70,7 @@ public class SocketClient{
                 receive.start();
 
 
+
                 String strIpAddress = null;
                 WifiManager wifiManager = (WifiManager)MainActivity.mainContext.getSystemService(Context.WIFI_SERVICE);
                 DhcpInfo dhcpInfo = wifiManager.getDhcpInfo();
@@ -74,6 +83,7 @@ public class SocketClient{
 
                 Client_FLAG =true;
             }catch (Exception e){
+                init();
                 e.printStackTrace();
                 cancel();
             }
@@ -91,6 +101,12 @@ public class SocketClient{
             }
         }
     }
+
+
+
+
+
+
 
 
 
@@ -119,11 +135,40 @@ public class SocketClient{
 
                 }
             }catch (Exception e){
+                new SearchManagerThread(context).start();
+                init();
                 e.printStackTrace();
             }
 
         }
     }
+
+    class SearchManagerThread extends  Thread {
+        Context context;
+        public SearchManagerThread (Context context){
+            this.context = context;
+        }
+
+        @Override
+        public void run() {
+            new Timer().scheduleAtFixedRate(new TimerTask() {
+                @Override
+                public void run() {
+                    if(!socket.isConnected()){
+                        if(!Client_FLAG ){
+                            new SocketClient(ip,port);
+                        }
+                    }
+                }
+            },0,10000);
+
+        }
+
+        public void cancel(){
+            cancel();
+        }
+    }
+
 
     class SendThread extends  Thread{
 
@@ -155,6 +200,18 @@ public class SocketClient{
                     }
                 }
             }catch (Exception e){
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void init(){
+        Client_FLAG = false;
+        threadAlive = false;
+        if(socket!=null){
+            try {
+                socket.close();
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }

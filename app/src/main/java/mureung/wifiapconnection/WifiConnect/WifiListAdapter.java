@@ -3,6 +3,7 @@ package mureung.wifiapconnection.WifiConnect;
 import android.content.Context;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,7 +20,7 @@ public class WifiListAdapter  extends ArrayAdapter<String> {
     private static ViewHolder holder;
 
     public WifiListAdapter(@NonNull Context context, int resource, ArrayList<String> wifiArrayList) {
-        super(context, resource);
+        super(context, resource,wifiArrayList);
         this.wifiArrayList = new ArrayList<String>();
         this.wifiArrayList = wifiArrayList;
 
@@ -27,10 +28,17 @@ public class WifiListAdapter  extends ArrayAdapter<String> {
 
     @NonNull
     @Override
-    public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
+    public View getView(final int position, @Nullable View convertView, @NonNull ViewGroup parent) {
         LayoutInflater layoutInflater = ( LayoutInflater) getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        convertView = layoutInflater.inflate(R.layout.list_wificonnect , null);
-
+        convertView = layoutInflater.inflate(R.layout.list_wificonnect_item, null);
+        initViewItem(convertView);
+        holder.wifiConnectListText.setText(wifiArrayList.get(position));
+        /*holder.wifiConnectListText.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.e("Click","wifiArrayList.get(position ) : " + wifiArrayList.get(position));
+            }
+        });*/
 
         return convertView;
     }

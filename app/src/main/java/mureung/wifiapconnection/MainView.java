@@ -17,6 +17,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -26,10 +27,13 @@ import android.widget.TextView;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.Objects;
 
 import mureung.wifiapconnection.WifiConnect.SocketClient;
 import mureung.wifiapconnection.WifiConnect.SocketServer;
+import mureung.wifiapconnection.WifiConnect.WifiListAdapter;
 
 
 /**
@@ -42,13 +46,15 @@ public class MainView extends Fragment implements View.OnClickListener {
     LinearLayout wifiConnect,wifiTether;
     LinearLayout wifiTestButton,pushData;
     ImageView bluetoothIcon;
+    WifiListAdapter wifiListAdapter;
 
     TextView wifiTetherText , wifiConnectText;
     EditText mainEditText;
 
-    Handler mainViewHandler;
+    static Handler mainViewHandler;
 
     ListView mainViewList;
+    private static ArrayList<String> wifiArrayList;
 
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
@@ -73,9 +79,17 @@ public class MainView extends Fragment implements View.OnClickListener {
         mainEditText = (EditText)view.findViewById(R.id.mainEditText);
 
         mainViewList = (ListView)view.findViewById(R.id.mainViewList);
-
-
-
+        wifiArrayList = new ArrayList<String>();
+        wifiArrayList.add(SocketServer.allConnect);
+        wifiListAdapter = new WifiListAdapter(Objects.requireNonNull(getContext()),R.layout.list_wificonnect_item,wifiArrayList);
+        mainViewList.setAdapter(wifiListAdapter);
+        mainViewList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                new SocketServer().setIpAddressConnect(wifiArrayList.get(position));
+                Log.e("test","test SocketAddress : " + SocketServer.ipAddressConnect);
+            }
+        });
 
 
 
@@ -84,11 +98,7 @@ public class MainView extends Fragment implements View.OnClickListener {
 
 
 
-
-
-
         PageStr.setPageStrData(PageStr.Mainview);
-
 
 
 
@@ -110,10 +120,34 @@ public class MainView extends Fragment implements View.OnClickListener {
                     case wifiTetherState :
                         wifiTetherText.setText(String.valueOf(msg.obj));
                         break;
+                    case 3 :
+                        wifiListAdapter.notifyDataSetChanged();
+
+                        break;
                 }
                 return true;
             }
         });
+    }
+
+    public void addListItem(String ipAddress){
+        if(!wifiArrayList.contains(ipAddress)){
+            wifiArrayList.add(ipAddress);
+            if(mainViewHandler!=null){
+                mainViewHandler.obtainMessage(3,null).sendToTarget();
+            }
+        }
+
+    }
+    public void removeListItem(String ipAddress){
+        if(wifiArrayList.contains(ipAddress)){
+            wifiArrayList.remove(ipAddress);
+
+            if(mainViewHandler!=null){
+
+                mainViewHandler.obtainMessage(3,null).sendToTarget();
+            }
+        }
     }
 
     public void setWifiConnectText(String text){
@@ -133,39 +167,7 @@ public class MainView extends Fragment implements View.OnClickListener {
 
         switch (v.getId()){
             case R.id.wifiConnect:
-                new MainActivity().setBroadcastReceiver(getContext());
-                Log.e("MainView","wifiConnect");
-                ConnectivityManager manager ;
-                WifiManager wifiManager = (WifiManager)getContext().getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-                manager = (ConnectivityManager)getContext().getApplicationContext().getSystemService(Context.CONNECTIVITY_SERVICE);
-                NetworkInfo wifi = manager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
-                if(wifi.isConnected()){
-                    Log.e("Wifi","Wifi 가 이미 켜져있음");
-                }else {
-                    Log.e("Wifi","Wifi 가 꺼져 있음");
-                    if (wifiManager != null) {
-                        wifiManager.setWifiEnabled(true);
-                    }
-                }
-
-                WifiConfiguration wifiConfig = new WifiConfiguration();
-                wifiConfig.SSID = "".concat("MureungTest").concat("");
-                wifiConfig.status = WifiConfiguration.Status.DISABLED;
-                wifiConfig.priority = 40;
-                wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-                wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
-                wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.WPA);
-                wifiConfig.allowedAuthAlgorithms.clear();
-                wifiConfig.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
-                wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
-                wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104);
-                wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
-                wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP);
-
-                int netId = wifiManager.addNetwork(wifiConfig);
-                wifiManager.disconnect();
-                wifiManager.enableNetwork(netId,true);
-                wifiManager.reconnect();
+                connectWifi(getContext());
 
 
 
@@ -173,7 +175,7 @@ public class MainView extends Fragment implements View.OnClickListener {
 
             case R.id.wifiTether:
 
-                if(new MainActivity().configApState(getContext().getApplicationContext())){
+                if(new WifiApManager().configApState(getContext().getApplicationContext())){
                     Log.e("MainView","wifiTether 테더링 성공");
                 }else {
                     Log.e("MainView","wifiTether 테더링 실패");
@@ -254,9 +256,45 @@ public class MainView extends Fragment implements View.OnClickListener {
                 }
             }
         } catch (SocketException ex) {
-            Log.e("Error", ex.toString());
+            ex.printStackTrace();
         }
         return null;
+    }
+
+    public void connectWifi(Context context){
+        new MainActivity().setWifiBroadcastReceiver(context);
+        Log.e("MainView","wifiConnect");
+        ConnectivityManager manager ;
+        WifiManager wifiManager = (WifiManager)context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        manager = (ConnectivityManager)context.getApplicationContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo wifi = manager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+        if(wifi.isConnected()){
+            Log.e("Wifi","Wifi 가 이미 켜져있음");
+        }else {
+            Log.e("Wifi","Wifi 가 꺼져 있음");
+            if (wifiManager != null) {
+                wifiManager.setWifiEnabled(true);
+            }
+        }
+
+        WifiConfiguration wifiConfig = new WifiConfiguration();
+        wifiConfig.SSID = "".concat("MureungTest").concat("");
+        wifiConfig.status = WifiConfiguration.Status.DISABLED;
+        wifiConfig.priority = 40;
+        wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+        wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.RSN);
+        wifiConfig.allowedProtocols.set(WifiConfiguration.Protocol.WPA);
+        wifiConfig.allowedAuthAlgorithms.clear();
+        wifiConfig.allowedPairwiseCiphers.set(WifiConfiguration.PairwiseCipher.CCMP);
+        wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP40);
+        wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.WEP104);
+        wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.CCMP);
+        wifiConfig.allowedGroupCiphers.set(WifiConfiguration.GroupCipher.TKIP);
+
+        int netId = wifiManager.addNetwork(wifiConfig);
+        wifiManager.disconnect();
+        wifiManager.enableNetwork(netId,true);
+        wifiManager.reconnect();
     }
 
 
